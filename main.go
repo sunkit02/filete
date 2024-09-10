@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,10 +15,11 @@ const (
 )
 
 func main() {
-
 	http.Handle("GET /", http.FileServer(http.Dir("./static")))
 
 	http.HandleFunc("POST /upload", handleFileUpload)
+
+	http.HandleFunc("POST /message", handleMessage)
 
 	// Define the HTTPS server configuration
 	server := &http.Server{
@@ -29,7 +31,7 @@ func main() {
 
 	// Start the HTTPS server
 	fmt.Printf("Starting server on %s\n", port)
-	if err := server.ListenAndServeTLS("server.crt", "server.key"); err != nil {
+	if err := server.ListenAndServeTLS("secrets/server.crt", "secrets/server.key"); err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
 }
@@ -55,7 +57,6 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// Create a file on the server to save the uploaded file
-	// go func() {
 	saveFileName := fmt.Sprintf("%d-%s", time.Now().UnixMilli(), fileHandler.Filename)
 	out, err := os.Create(fmt.Sprintf("./uploaded/%s", saveFileName))
 	if err != nil {
@@ -70,9 +71,46 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error saving file", http.StatusInternalServerError)
 		return
 	}
-	// }()
 
 	http.Redirect(w, r, "/success.html", http.StatusSeeOther)
 
 	fmt.Printf("Took %d ms\n\n", time.Now().UnixMilli()-start)
+}
+
+type Message struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+	TimeSent
+}
+
+func handleMessage(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Handling short message")
+
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		http.Error(w, "Failed to read message body", http.StatusBadRequest)
+		return
+	}
+
+	var message Message
+	err = json.Unmarshal(body, &message)
+	if err != nil {
+		http.Error(w, "Invalid message body", http.StatusBadRequest)
+		return
+	}
+
+	messageLogFile, err := os.OpenFile("uploaded/messages.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		http.Error(w, "Internal Server Error", 500)
+		fmt.Println(fmt.Errorf("Failed to open message log file: %w\n", err))
+		return
+	}
+	defer messageLogFile.Close()
+
+	messageLogFile.WriteString(fmt.Sprintf("%s:%s\n", message.Title, message.Body))
+
+	fmt.Printf("Got message: %+v\n", message)
+
+	fmt.Fprintln(w, "Message sent")
 }

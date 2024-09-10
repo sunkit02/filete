@@ -13,6 +13,46 @@
     <br />
     <button type="submit">Upload</button>
   </form>
+
+  <form id="message-form">
+    <label for="title">Title</label>
+    <input type="text" id="title" name="title" />
+    <br />
+    <label for="message">Message</label>
+    <input type="text" id="message" name="message" />
+
+    <button type="submit">Send</button>
+  </form>
+  <p id="message-result"></p>
 </body>
+<script>
+  const messageForm = document.getElementById("message-form");
+  const messageResult = document.getElementById("message-result");
+
+  messageForm.addEventListener("submit", e => {
+    e.preventDefault();
+
+    const formData = new FormData(messageForm);
+    const title = formData.get("title");
+    const body = formData.get("message");
+
+    fetch("/message", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({title, body}),
+    })
+      .then(res => res.text())
+      .then(res => {
+        messageResult.innerText = res;
+        setTimeout(() => messageResult.innerText = "", 2000);
+        messageForm.reset();
+      })
+      .catch(err => console.err("Error when sending message:", err));
+
+  })
+
+</script>
 
 </html>
