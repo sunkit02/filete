@@ -35,13 +35,14 @@
     const formData = new FormData(messageForm);
     const title = formData.get("title");
     const body = formData.get("message");
+    const timeSent = new Date();
 
     fetch("/message", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({title, body}),
+      body: JSON.stringify({title, body, timeSent}),
     })
       .then(res => res.text())
       .then(res => {
