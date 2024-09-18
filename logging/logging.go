@@ -1,4 +1,4 @@
-package main
+package logging
 
 import (
 	"io"
@@ -13,7 +13,7 @@ var (
 	Error   *log.Logger
 )
 
-func initializeLoggers(out io.Writer) {
+func InitializeLoggers(out io.Writer) {
 
 	flags := log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 
