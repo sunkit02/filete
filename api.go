@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"floader/data"
+	"floader/logging"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,56 +38,70 @@ func StartServer(configs ServerConfigs) {
 	}
 
 	// Start the HTTPS server
-	Info.Printf("Start listening on port %d with TLS\n", configs.Port)
+	logging.Info.Printf("Start listening on port %d with TLS\n", configs.Port)
 	if err := server.ListenAndServeTLS(configs.CertFile, configs.KeyFile); err != nil {
-		Error.Fatalf("Error starting server: %v\n", err)
+		logging.Error.Fatalf("Error starting server: %v\n", err)
 	}
 }
+
+const MaxFileSizeStoredInMemory = 32 << 20 // 32 MB
 
 // handleFileUpload processes file uploads
 func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
 
-	Info.Println(withId(id, reqLogStr(r, false)))
-	Debug.Println(withId(id, reqLogStr(r, true)))
+	logging.Info.Println(withId(id, reqLogStr(r, false)))
+	logging.Debug.Println(withId(id, reqLogStr(r, true)))
 
-	uploadedFile, uploadedFileHandler, err := r.FormFile("file")
-	if err != nil {
-		msg := withId(id, "Unable to read file from request")
-		Error.Println(msg)
-		http.Error(w, msg, http.StatusBadRequest)
-		return
-	}
-	defer uploadedFile.Close()
+	r.ParseMultipartForm(MaxFileSizeStoredInMemory)
 
-	// Create a file on the server to save the uploaded file
-	saveFilePath := fmt.Sprintf("./uploaded/%d-%s", time.Now().UnixMilli(), uploadedFileHandler.Filename)
-	saveFile, err := os.Create(saveFilePath)
-	if err != nil {
-		Error.Printf(withId(id, "Unable to save file with name '%s'", saveFilePath))
-		http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
-		return
-	}
-	defer saveFile.Close()
-
-	// Copy the file content to the new file
-	bytesWritten, err := io.Copy(saveFile, uploadedFile)
-	if err != nil {
-		Error.Printf(withId(id, "Unable to copy file with name '%s'", saveFilePath))
-		http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+	if r.MultipartForm == nil {
+		logging.Error.Println(withId(id, "No attached MultipartForm"))
+		http.Error(w, "No attached MultipartForm", http.StatusBadRequest)
 		return
 	}
 
-	// Remove savefile if incomplete/corrupted
-	if bytesWritten != uploadedFileHandler.Size {
-		err = os.Remove(saveFilePath)
+	for k, fileheaders := range r.MultipartForm.File {
+		logging.Debug.Println("Processing multipart fileheaders with key:", k)
 
-		Error.Printf(withId(id,
-			"Saved file incomplete/corrupted. Uploaded size: %d, written: %d",
-			bytesWritten, uploadedFileHandler.Size))
+		for _, fileheader := range fileheaders {
+			uploadedFile, err := fileheader.Open()
+			if err != nil {
+				logging.Error.Println(withId(id, "Failed to parse multipart file upload: %v", err))
+				http.Error(w, withId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
+				return
+			}
+			// Create a file on the server to save the uploaded file
+			saveFilePath := fmt.Sprintf("./uploaded/%d-%s", time.Now().UnixMilli(), fileheader.Filename)
+			saveFile, err := os.Create(saveFilePath)
+			if err != nil {
+				logging.Error.Printf(withId(id, "Unable to save file with name '%s'", saveFilePath))
+				http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+				return
+			}
+			defer saveFile.Close()
 
-		http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
-		return
+			// Copy the file content to the new file
+			bytesWritten, err := io.Copy(saveFile, uploadedFile)
+			if err != nil {
+				logging.Error.Printf(withId(id, "Unable to copy file with name '%s'", saveFilePath))
+				http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+				return
+			}
+
+			// Remove savefile if incomplete/corrupted
+			if bytesWritten != fileheader.Size {
+				err = os.Remove(saveFilePath)
+
+				logging.Error.Printf(withId(id,
+					"Saved file incomplete/corrupted. Uploaded size: %d, written: %d",
+					bytesWritten, fileheader.Size))
+
+				http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+				return
+			}
+
+		}
 	}
 
 	http.Redirect(w, r, "/success.html", http.StatusSeeOther)
@@ -95,13 +110,13 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 func handleMessage(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
 
-	Info.Println(withId(id, reqLogStr(r, false)))
-	Debug.Println(withId(id, reqLogStr(r, true)))
+	logging.Info.Println(withId(id, reqLogStr(r, false)))
+	logging.Debug.Println(withId(id, reqLogStr(r, true)))
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		Error.Println(withId(id, "Failed to read request body"))
+		logging.Error.Println(withId(id, "Failed to read request body"))
 		http.Error(w, withId(id, "Invalid message body"), http.StatusBadRequest)
 		return
 	}
@@ -109,14 +124,14 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 	var message data.Message
 	err = json.Unmarshal(body, &message)
 	if err != nil {
-		Error.Println(withId(id, "Failed to parse Message from request body"))
+		logging.Error.Println(withId(id, "Failed to parse Message from request body"))
 		http.Error(w, withId(id, "Invalid message body"), http.StatusBadRequest)
 		return
 	}
 
 	messageLogFile, err := os.OpenFile("uploaded/messages.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		Error.Println(withId(id, "Failed to open message log file: %w\n", err))
+		logging.Error.Println(withId(id, "Failed to open message log file: %w\n", err))
 		http.Error(w, withId(id, "Internal Server Error"), 500)
 		return
 	}
