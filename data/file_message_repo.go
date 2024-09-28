@@ -13,15 +13,15 @@ import (
 type FileMessageRepo struct {
 	path             string
 	file             *os.File
-	nextId           uint64
-	messageReadCache map[uint64]Message
+	nextId           MessageId
+	messageReadCache map[MessageId]Message
 }
 
 func NewFileMessageRepo(path string) FileMessageRepo {
 	return FileMessageRepo{path: path}
 }
 
-func (repo *FileMessageRepo) Get(id uint64) (Message, bool, error) {
+func (repo *FileMessageRepo) Get(id MessageId) (Message, bool, error) {
 	if repo.messageReadCache == nil {
 		repo.populateCache()
 	}
@@ -79,7 +79,7 @@ func (repo *FileMessageRepo) AddAll(messages []Message) error {
 	return nil
 }
 
-func (repo *FileMessageRepo) Delete(id uint64) {
+func (repo *FileMessageRepo) Delete(id MessageId) {
 	if repo.messageReadCache == nil {
 		repo.populateCache()
 	}
@@ -124,7 +124,7 @@ func (repo *FileMessageRepo) populateCache() {
 	if err != nil {
 		logging.Error.Printf("error reading from message file: %v\n", err)
 	}
-	messageMap := make(map[uint64]Message, len(messages))
+	messageMap := make(map[MessageId]Message, len(messages))
 	for _, message := range messages {
 		messageMap[message.Id] = message
 		if message.Id > repo.nextId {

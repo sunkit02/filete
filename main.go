@@ -11,10 +11,11 @@ func init() {
 
 func main() {
 	serverConfigs := ServerConfigs{
-		Port:     8080,
-		CertFile: "./secrets/server.crt",
-		KeyFile:  "./secrets/server.key",
-		AssetDir: "./static",
+		Port:      8080,
+		CertFile:  "./secrets/server.crt",
+		KeyFile:   "./secrets/server.key",
+		AssetDir:  "./static",
+		UploadDir: "./uploaded",
 	}
 
 	StartServer(serverConfigs)

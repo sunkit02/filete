@@ -19,15 +19,26 @@ type ServerConfigs struct {
 	Port     uint16
 	CertFile string
 	KeyFile  string
+
+	// Path to directoy holding static assets
 	AssetDir string
+
+	// Path to directory that saves all uploaded content
+	// NOTE: Must be pointing to a directory or empty
+	UploadDir string
 }
 
+var messageRepo data.Repository[data.MessageId, data.Message]
+
 func StartServer(configs ServerConfigs) {
+	r := data.NewFileMessageRepo(configs.UploadDir + "/messages.dat")
+	messageRepo = &r
+
 	http.Handle("GET /", http.FileServer(http.Dir(configs.AssetDir)))
 
 	http.HandleFunc("POST /upload", handleFileUpload)
 
-	http.HandleFunc("POST /message", handleMessage)
+	http.HandleFunc("POST /message", handlePostMessage)
 
 	// Define the HTTPS server configuration
 	server := &http.Server{
@@ -107,7 +118,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/success.html", http.StatusSeeOther)
 }
 
-func handleMessage(w http.ResponseWriter, r *http.Request) {
+func handlePostMessage(w http.ResponseWriter, r *http.Request) {
 	id := uuid.New()
 
 	logging.Info.Println(withId(id, reqLogStr(r, false)))
@@ -129,15 +140,7 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageLogFile, err := os.OpenFile("uploaded/messages.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		logging.Error.Println(withId(id, "Failed to open message log file: %w\n", err))
-		http.Error(w, withId(id, "Internal Server Error"), 500)
-		return
-	}
-	defer messageLogFile.Close()
-
-	messageLogFile.WriteString(fmt.Sprintf("%v#|#%v#|#%v\n", message.Title, message.Body, message.TimeSent.UTC().UTC().Format(time.RFC3339)))
+	messageRepo.Add(message)
 
 	fmt.Printf("Got message: %+v\n", message)
 

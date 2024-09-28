@@ -3,7 +3,7 @@ package data
 import "time"
 
 type Message struct {
-	Id       uint64    `json:"id"`
+	Id       MessageId `json:"id"`
 	Title    string    `json:"title"`
 	Body     string    `json:"body"`
 	TimeSent time.Time `json:"timeSent"`
@@ -17,3 +17,5 @@ type Identity struct {
 type LogString interface {
 	LogStr() string
 }
+
+type MessageId uint64
