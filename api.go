@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"floader/data"
 	"floader/logging"
+	"floader/web"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -20,29 +22,50 @@ type ServerConfigs struct {
 	CertFile string
 	KeyFile  string
 
-	// Path to directoy holding static assets
+	// Path to directory holding static assets
 	AssetDir string
 
 	// Path to directory that saves all uploaded content
 	// NOTE: Must be pointing to a directory or empty
 	UploadDir string
+
+	// Key required to be entered by client to authenticate. The server will
+	// generate a random one if left empty.
+	SessionKey string
 }
 
-var messageRepo data.Repository[data.MessageId, data.Message]
+var (
+	sessionKey  string
+	messageRepo data.Repository[data.MessageId, data.Message]
+)
 
 func StartServer(configs ServerConfigs) {
 	r := data.NewFileMessageRepo(configs.UploadDir + "/messages.dat")
 	messageRepo = &r
 
-	http.Handle("GET /", http.FileServer(http.Dir(configs.AssetDir)))
+	if configs.SessionKey == "" {
+		configs.SessionKey = generateSessionKey(8)
+	}
+	sessionKey = configs.SessionKey
 
-	http.HandleFunc("POST /upload", handleFileUpload)
+	assetMux := http.NewServeMux()
+	assetMux.Handle("GET /", http.FileServer(http.Dir(configs.AssetDir)))
 
-	http.HandleFunc("POST /message", handlePostMessage)
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("POST /upload", handleFileUpload)
+	apiMux.HandleFunc("POST /message", handlePostMessage)
+
+	composedMux := http.NewServeMux()
+	composedMux.Handle("/", assetMux)
+	composedMux.Handle("/api/", web.SessionKeyAuthMiddleware(
+		sessionKey,
+		http.StripPrefix("/api", apiMux),
+	))
 
 	// Define the HTTPS server configuration
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", configs.Port),
+		Addr:    fmt.Sprintf(":%d", configs.Port),
+		Handler: composedMux,
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13,
 		},
@@ -50,6 +73,7 @@ func StartServer(configs ServerConfigs) {
 
 	// Start the HTTPS server
 	logging.Info.Printf("Start listening on port %d with TLS\n", configs.Port)
+	logging.Info.Println("Session key:", sessionKey)
 	if err := server.ListenAndServeTLS(configs.CertFile, configs.KeyFile); err != nil {
 		logging.Error.Fatalf("Error starting server: %v\n", err)
 	}
@@ -115,7 +139,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.Redirect(w, r, "/success.html", http.StatusSeeOther)
+	fmt.Fprintln(w, "File(s) uploaded successfully")
 }
 
 func handlePostMessage(w http.ResponseWriter, r *http.Request) {
@@ -180,4 +204,20 @@ func reqLogStr(r *http.Request, headers bool) string {
 
 func withId(id uuid.UUID, format string, a ...any) string {
 	return fmt.Sprintf("reqId(%s) "+format, id, a)
+}
+
+var alphanumerics = [...]rune{
+	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
+	'J', 'K', 'L', 'M', 'N', 'O', 'P', 'q', 'r',
+	's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1',
+	'2', '3', '4', '5', '6', '7', '8', '9', '0',
+}
+
+func generateSessionKey(length uint) string {
+	var key strings.Builder
+	for range length {
+		key.WriteRune(alphanumerics[rand.Intn(len(alphanumerics))])
+	}
+
+	return key.String()
 }

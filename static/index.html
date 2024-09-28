@@ -7,7 +7,7 @@
 
 <body>
   <h1>Hello, Floader!</h1>
-  <form action="/upload" method="POST" enctype="multipart/form-data">
+  <form id="file-form" action="/api/upload" method="POST" enctype="multipart/form-data">
     <label for="file">Select file</label>
     <input type="file" id="file" name="file" multiple />
     <br />
@@ -23,11 +23,50 @@
 
     <button type="submit">Send</button>
   </form>
-  <p id="message-result"></p>
+  <p id="upload-result"></p>
 </body>
 <script>
+  let sessionToken = "";
+
+  const fileForm = document.getElementById("file-form");
   const messageForm = document.getElementById("message-form");
-  const messageResult = document.getElementById("message-result");
+  const uploadResult = document.getElementById("upload-result");
+
+  fileForm.addEventListener("submit", e => {
+    e.preventDefault();
+
+    const formData = new FormData(fileForm);
+
+    while (!sessionToken) {
+      const input = prompt("Session Token:")
+      if (input === null) {
+        return
+      }
+      sessionToken = input
+    }
+
+
+    fetch("/api/upload", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + sessionToken
+      },
+      body: formData
+    })
+      .then(async res => {
+        if (res.status >= 400) {
+          throw new Error(await res.text())
+        }
+        uploadResult.innerText = await res.text();
+        setTimeout(() => uploadResult.innerText = "", 2000);
+        fileForm.reset();
+      })
+      .catch(err => {
+        uploadResult.innerText = "Error when uploading files: " + err;
+        console.error("Error when uploading files:", err)
+      });
+
+  });
 
   messageForm.addEventListener("submit", e => {
     e.preventDefault();
@@ -37,22 +76,38 @@
     const body = formData.get("message");
     const timeSent = new Date();
 
-    fetch("/message", {
+    while (!sessionToken) {
+      const input = prompt("Session Token:")
+      if (input === null) {
+        return
+      }
+      sessionToken = input
+    }
+
+    fetch("/api/message", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": "Bearer " + sessionToken
       },
       body: JSON.stringify({title, body, timeSent}),
     })
-      .then(res => res.text())
-      .then(res => {
-        messageResult.innerText = res;
-        setTimeout(() => messageResult.innerText = "", 2000);
+      .then(async res => {
+        if (res.status >= 400) {
+          throw new Error(await res.text())
+        }
+        uploadResult.innerText = await res.text();
+        setTimeout(() => uploadResult.innerText = "", 2000);
         messageForm.reset();
       })
-      .catch(err => console.err("Error when sending message:", err));
+      .catch(err => {
+        uploadResult.innerText = "Error when sending message: " + err;
+        console.error("Error when sending message:", err);
+      });
 
-  })
+  });
+
+  sessionToken = prompt("Session Token:")
 
 </script>
 
