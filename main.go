@@ -1,7 +1,6 @@
 package main
 
 import (
-	"floader/data"
 	"floader/logging"
 	"os"
 )
@@ -19,8 +18,4 @@ func main() {
 	}
 
 	StartServer(serverConfigs)
-}
-
-func useRepo[K any, T any](r data.Repository[K, T]) {
-
 }
