@@ -1,11 +1,11 @@
-package main
+package web
 
 import (
 	"crypto/tls"
 	"encoding/json"
 	"floader/data"
 	"floader/logging"
-	"floader/web"
+	"floader/web/middleware"
 	"fmt"
 	"io"
 	"math/rand"
@@ -57,15 +57,20 @@ func StartServer(configs ServerConfigs) {
 
 	composedMux := http.NewServeMux()
 	composedMux.Handle("/", assetMux)
-	composedMux.Handle("/api/", web.SessionKeyAuthMiddleware(
+	composedMux.Handle("/api/", middleware.SessionKeyAuthMiddleware(
 		sessionKey,
 		http.StripPrefix("/api", apiMux),
 	))
 
+	topLevelMux := http.NewServeMux()
+	topLevelMux.Handle("/",
+		middleware.RequestIdMiddleware(
+			middleware.RequestLoggingMiddleware(composedMux)))
+
 	// Define the HTTPS server configuration
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", configs.Port),
-		Handler: composedMux,
+		Handler: topLevelMux,
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13,
 		},
@@ -83,16 +88,13 @@ const MaxFileSizeStoredInMemory = 32 << 20 // 32 MB
 
 // handleFileUpload processes file uploads
 func handleFileUpload(w http.ResponseWriter, r *http.Request) {
-	id := uuid.New()
-
-	logging.Info.Println(withId(id, reqLogStr(r, false)))
-	logging.Debug.Println(withId(id, reqLogStr(r, true)))
+	id := middleware.ExtractRequestId(r)
 
 	r.ParseMultipartForm(MaxFileSizeStoredInMemory)
 
 	if r.MultipartForm == nil {
 		logging.Error.Println(withId(id, "No attached MultipartForm"))
-		http.Error(w, "No attached MultipartForm", http.StatusBadRequest)
+		http.Error(w, withId(id, "No attached MultipartForm"), http.StatusBadRequest)
 		return
 	}
 
@@ -143,10 +145,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePostMessage(w http.ResponseWriter, r *http.Request) {
-	id := uuid.New()
-
-	logging.Info.Println(withId(id, reqLogStr(r, false)))
-	logging.Debug.Println(withId(id, reqLogStr(r, true)))
+	id := middleware.ExtractRequestId(r)
 
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()

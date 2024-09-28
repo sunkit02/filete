@@ -2,6 +2,7 @@ package main
 
 import (
 	"floader/logging"
+	"floader/web"
 	"os"
 )
 
@@ -10,7 +11,7 @@ func init() {
 }
 
 func main() {
-	serverConfigs := ServerConfigs{
+	serverConfigs := web.ServerConfigs{
 		Port:      8080,
 		CertFile:  "./secrets/server.crt",
 		KeyFile:   "./secrets/server.key",
@@ -18,5 +19,5 @@ func main() {
 		UploadDir: "./uploaded",
 	}
 
-	StartServer(serverConfigs)
+	web.StartServer(serverConfigs)
 }

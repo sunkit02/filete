@@ -1,28 +1,32 @@
-package web
+package middleware
 
 import (
+	"floader/logging"
 	"net/http"
 	"strings"
 )
 
 func SessionKeyAuthMiddleware(key string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqId := ExtractRequestId(r)
 		authToken := r.Header.Get("Authorization")
 		if authToken == "" {
 			http.Error(w, "Missing bearer token", http.StatusUnauthorized)
+			logging.Info.Printf("reqId(%s) Missing bearer token", reqId)
 			return
 		}
 
 		requestKey, err := parseBearerToken(authToken)
 
 		if err != nil {
-			// TODO: Get requestId in here using a middleware
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			logging.Info.Printf("reqId(%s) %s", reqId, err.Error())
 			return
 		}
 
 		if requestKey != key {
 			http.Error(w, "Invalid bearer token", http.StatusForbidden)
+			logging.Info.Printf("reqId(%s) Invalid bearer token", reqId)
 			return
 		}
 
