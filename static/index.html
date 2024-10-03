@@ -7,6 +7,13 @@
 
 <body>
   <h1>Hello, Floader!</h1>
+  <article>
+    <p>Session token: <span id="session-token-display"></span></p>
+    <button id="show-session-token-btn">Show</button>
+    <button id="change-session-token-btn">Change</button>
+    <br />
+  </article>
+  <br />
   <form id="file-form" action="/api/upload" method="POST" enctype="multipart/form-data">
     <label for="file">Select file</label>
     <input type="file" id="file" name="file" multiple />
@@ -27,6 +34,41 @@
 </body>
 <script>
   let sessionToken = "";
+  let showSessionToken = false
+
+  const showSessionTokenBtn = document.getElementById("show-session-token-btn")
+  const changeSessionTokenBtn = document.getElementById("change-session-token-btn")
+  const sessionTokenDisplay = document.getElementById("session-token-display")
+
+  function displaySessionToken() {
+    if (!sessionToken) {
+      sessionTokenDisplay.innerText = "<No Token>"
+    } else if (showSessionToken) {
+      sessionTokenDisplay.innerText = sessionToken
+    } else {
+      sessionTokenDisplay.innerText = "*".repeat(sessionToken.length)
+    }
+  }
+
+  showSessionTokenBtn.addEventListener("click", () => {
+    if (showSessionToken) {
+      showSessionTokenBtn.innerText = "Show"
+    } else {
+      showSessionTokenBtn.innerText = "Hide"
+    }
+    showSessionToken = !showSessionToken
+
+    displaySessionToken()
+  })
+
+  changeSessionTokenBtn.addEventListener("click", () => {
+    input = prompt("Session Token:")
+    if (input != sessionToken) {
+      sessionToken = input
+      displaySessionToken()
+    }
+  })
+
 
   const fileForm = document.getElementById("file-form");
   const messageForm = document.getElementById("message-form");
@@ -43,6 +85,7 @@
         return
       }
       sessionToken = input
+      displaySessionToken()
     }
 
 
@@ -82,6 +125,7 @@
         return
       }
       sessionToken = input
+      displaySessionToken()
     }
 
     fetch("/api/message", {
@@ -108,6 +152,7 @@
   });
 
   sessionToken = prompt("Session Token:")
+  displaySessionToken()
 
 </script>
 
