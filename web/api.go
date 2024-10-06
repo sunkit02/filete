@@ -90,11 +90,16 @@ const MaxFileSizeStoredInMemory = 32 << 20 // 32 MB
 func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	id := middleware.ExtractRequestId(r)
 
-	r.ParseMultipartForm(MaxFileSizeStoredInMemory)
+	err := r.ParseMultipartForm(MaxFileSizeStoredInMemory)
+	if err != nil {
+		logging.Error.Println(withId(id, "Failed to parse multipart file"))
+		http.Error(w, withId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
+		return
+	}
 
-	if r.MultipartForm == nil {
-		logging.Error.Println(withId(id, "No attached MultipartForm"))
-		http.Error(w, withId(id, "No attached MultipartForm"), http.StatusBadRequest)
+	if len(r.MultipartForm.File) == 0 {
+		logging.Error.Println(withId(id, "No multipart files found"))
+		http.Error(w, withId(id, "No files found"), http.StatusBadRequest)
 		return
 	}
 
@@ -202,7 +207,11 @@ func reqLogStr(r *http.Request, headers bool) string {
 }
 
 func withId(id uuid.UUID, format string, a ...any) string {
-	return fmt.Sprintf("reqId(%s) "+format, id, a)
+	args := make([]any, 0, len(a)+1)
+	args = append(args, id)
+	args = append(args, a...)
+
+	return fmt.Sprintf("reqId(%s) "+format, args...)
 }
 
 var alphanumerics = [...]rune{
