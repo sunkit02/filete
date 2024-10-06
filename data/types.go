@@ -4,7 +4,6 @@ import "time"
 
 type Message struct {
 	Id       MessageId `json:"id"`
-	Title    string    `json:"title"`
 	Body     string    `json:"body"`
 	TimeSent time.Time `json:"timeSent"`
 }

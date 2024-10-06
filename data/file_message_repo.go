@@ -43,7 +43,6 @@ func (repo *FileMessageRepo) GetAll() ([]Message, error) {
 	for _, message := range repo.messageReadCache {
 		messages = append(messages, Message{
 			Id:       message.Id,
-			Title:    message.Title,
 			Body:     message.Body,
 			TimeSent: message.TimeSent,
 		})
@@ -62,7 +61,11 @@ func (repo *FileMessageRepo) Add(message Message) error {
 
 	repo.nextId++
 	message.Id = repo.nextId
-	repo.appendToFile(message)
+	err := repo.appendToFile(message)
+	if err != nil {
+		return nil
+	}
+
 	repo.messageReadCache[message.Id] = message
 
 	return nil
@@ -96,7 +99,10 @@ func (repo *FileMessageRepo) Delete(id MessageId) {
 		repo.file = file
 
 		for _, message := range repo.messageReadCache {
-			repo.appendToFile(message)
+			err := repo.appendToFile(message)
+			if err != nil {
+				logging.Error.Fatal("Failed to write back to file after deletion, possible data corruption.")
+			}
 		}
 
 	}
@@ -134,7 +140,7 @@ func (repo *FileMessageRepo) populateCache() {
 	repo.messageReadCache = messageMap
 }
 
-func (repo *FileMessageRepo) appendToFile(message Message) {
+func (repo *FileMessageRepo) appendToFile(message Message) error {
 	if repo.file == nil {
 		file, err := os.OpenFile(repo.path, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
@@ -147,9 +153,24 @@ func (repo *FileMessageRepo) appendToFile(message Message) {
 	if err != nil {
 		logging.Error.Fatal("Failed to marshal Message:", err)
 	}
-	repo.file.Seek(0, io.SeekEnd)
-	repo.file.Write(bytes)
-	repo.file.WriteString("\n")
+
+	_, err = repo.file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+
+	_, err = repo.file.Write(bytes)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = repo.file.WriteString("\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func parseMessagesFromFile(file *os.File) ([]Message, error) {

@@ -113,6 +113,9 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, withId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
 				return
 			}
+
+			logging.Trace.Println("Processing uploaded file:", fileheader.Filename)
+
 			// Create a file on the server to save the uploaded file
 			saveFilePath := fmt.Sprintf("./uploaded/%d-%s", time.Now().UnixMilli(), fileheader.Filename)
 			saveFile, err := os.Create(saveFilePath)
@@ -168,13 +171,18 @@ func handlePostMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messageRepo.Add(message)
+	err = messageRepo.Add(message)
+	if err != nil {
+		logging.Error.Println(withId(id, "Failed to write new message to file"), err)
+		http.Error(w, withId(id, "Failed to send new message"), http.StatusInternalServerError)
+	}
 
 	fmt.Printf("Got message: %+v\n", message)
 
 	fmt.Fprintln(w, "Message sent")
 }
 
+// TODO: Get rid of this security vulnerability
 func reqLogStr(r *http.Request, headers bool) string {
 	var logStr string
 	var sep = ""

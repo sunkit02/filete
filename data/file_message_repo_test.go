@@ -26,8 +26,8 @@ func initNewFileRepo() FileMessageRepo {
 func TestAdd(t *testing.T) {
 	repo := initNewFileRepo()
 
-	message1 := Message{Id: 1, Title: "Hello", Body: "World", TimeSent: time.Now().UTC()}
-	message2 := Message{Id: 2, Title: "Foo", Body: "Bar", TimeSent: time.Now().UTC()}
+	message1 := Message{Id: 1, Body: "World", TimeSent: time.Now().UTC()}
+	message2 := Message{Id: 2, Body: "Bar", TimeSent: time.Now().UTC()}
 
 	encodedMsg1, err := json.Marshal(message1)
 	if err != nil {
@@ -70,8 +70,8 @@ func TestAdd(t *testing.T) {
 func TestGet(t *testing.T) {
 	repo := initNewFileRepo()
 
-	expectedMsg1 := Message{Id: 1, Title: "Hello", Body: "World", TimeSent: time.Now().UTC()}
-	expectedMsg2 := Message{Id: 2, Title: "Foo", Body: "Bar", TimeSent: time.Now().UTC()}
+	expectedMsg1 := Message{Id: 1, Body: "World", TimeSent: time.Now().UTC()}
+	expectedMsg2 := Message{Id: 2, Body: "Bar", TimeSent: time.Now().UTC()}
 
 	err := repo.AddAll([]Message{expectedMsg1, expectedMsg2})
 	if err != nil {
@@ -100,8 +100,8 @@ func TestGetAll(t *testing.T) {
 	repo := initNewFileRepo()
 
 	expectedMessages := []Message{
-		{Id: 1, Title: "Hello", Body: "World", TimeSent: time.Now().UTC()},
-		{Id: 2, Title: "Foo", Body: "Bar", TimeSent: time.Now().UTC()},
+		{Id: 1, Body: "World", TimeSent: time.Now().UTC()},
+		{Id: 2, Body: "Bar", TimeSent: time.Now().UTC()},
 	}
 
 	err := repo.AddAll(expectedMessages)
@@ -126,8 +126,8 @@ func TestDelete(t *testing.T) {
 	repo := initNewFileRepo()
 
 	expectedMessages := []Message{
-		{Title: "Hello", Body: "World", TimeSent: time.Now().UTC()},
-		{Title: "Foo", Body: "Bar", TimeSent: time.Now().UTC()},
+		{Body: "World", TimeSent: time.Now().UTC()},
+		{Body: "Bar", TimeSent: time.Now().UTC()},
 	}
 
 	err := repo.AddAll(expectedMessages)
@@ -178,8 +178,8 @@ func TestDeleteAll(t *testing.T) {
 	repo := initNewFileRepo()
 
 	expectedMessages := []Message{
-		{Title: "Hello", Body: "World", TimeSent: time.Now().UTC()},
-		{Title: "Foo", Body: "Bar", TimeSent: time.Now().UTC()},
+		{Body: "World", TimeSent: time.Now().UTC()},
+		{Body: "Bar", TimeSent: time.Now().UTC()},
 	}
 
 	err := repo.AddAll(expectedMessages)
