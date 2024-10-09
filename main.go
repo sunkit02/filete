@@ -12,11 +12,13 @@ func init() {
 
 func main() {
 	serverConfigs := web.ServerConfigs{
-		Port:      8080,
-		CertFile:  "./secrets/server.crt",
-		KeyFile:   "./secrets/server.key",
-		AssetDir:  "./static",
-		UploadDir: "./uploaded",
+		Port:       8080,
+		CertFile:   "./secrets/server.crt",
+		KeyFile:    "./secrets/server.key",
+		AssetDir:   "./static",
+		ShareDirs:  []string{"/home/sunkit/Music"},
+		UploadDir:  "./uploaded",
+		SessionKey: "123",
 	}
 
 	web.StartServer(serverConfigs)

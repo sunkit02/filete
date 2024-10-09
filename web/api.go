@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"floader/data"
 	"floader/logging"
+	"floader/services"
 	"floader/web/middleware"
 	"fmt"
 	"io"
@@ -29,6 +30,9 @@ type ServerConfigs struct {
 	// NOTE: Must be pointing to a directory or empty
 	UploadDir string
 
+	// Path to directories to be shared
+	ShareDirs []string
+
 	// Key required to be entered by client to authenticate. The server will
 	// generate a random one if left empty.
 	SessionKey string
@@ -43,6 +47,10 @@ func StartServer(configs ServerConfigs) {
 	r := data.NewFileMessageRepo(configs.UploadDir + "/messages.dat")
 	messageRepo = &r
 
+	services.InitDownloadService(services.DownloadServiceConfig{
+		SharedDirectories: configs.ShareDirs,
+	})
+
 	if configs.SessionKey == "" {
 		configs.SessionKey = generateSessionKey(8)
 	}
@@ -54,6 +62,7 @@ func StartServer(configs ServerConfigs) {
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("POST /upload", handleFileUpload)
 	apiMux.HandleFunc("POST /message", handlePostMessage)
+	apiMux.HandleFunc("GET /shared-list", handleGetSharedList)
 
 	composedMux := http.NewServeMux()
 	composedMux.Handle("/", assetMux)
@@ -149,7 +158,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fmt.Fprintln(w, "File(s) uploaded successfully")
+	fmt.Fprint(w, "File(s) uploaded successfully")
 }
 
 func handlePostMessage(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +188,30 @@ func handlePostMessage(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("Got message: %+v\n", message)
 
-	fmt.Fprintln(w, "Message sent")
+	fmt.Fprint(w, "Message sent")
+}
+
+func handleGetSharedList(w http.ResponseWriter, r *http.Request) {
+	id := middleware.ExtractRequestId(r)
+
+	sharedDirs, err := services.GetSharedFiles()
+	if err != nil {
+		logging.Error.Println(withId(id, err.Error()))
+		http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	responseBody, err := json.Marshal(sharedDirs)
+	if err != nil {
+		logging.Error.Println(withId(id, err.Error()))
+		http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = w.Write(responseBody)
+	if err != nil {
+		logging.Error.Println(withId(id, err.Error()))
+	}
 }
 
 // TODO: Get rid of this security vulnerability
