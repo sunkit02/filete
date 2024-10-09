@@ -62,7 +62,7 @@ func StartServer(configs ServerConfigs) {
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("POST /upload", handleFileUpload)
 	apiMux.HandleFunc("POST /message", handlePostMessage)
-	apiMux.HandleFunc("GET /shared-list", handleGetSharedList)
+	apiMux.HandleFunc("GET /shared-dir", handleGetSharedDir)
 
 	composedMux := http.NewServeMux()
 	composedMux.Handle("/", assetMux)
@@ -191,26 +191,53 @@ func handlePostMessage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Message sent")
 }
 
-func handleGetSharedList(w http.ResponseWriter, r *http.Request) {
+const DefaultReadDepth = 2
+
+// Getting with query parameter `path` empty gets the sharedRootDirectories in an array.
+// If `path` is empty, query parameter `root-dir-hash` is ignored
+func handleGetSharedDir(w http.ResponseWriter, r *http.Request) {
 	id := middleware.ExtractRequestId(r)
 
-	sharedDirs, err := services.GetSharedFiles()
-	if err != nil {
-		logging.Error.Println(withId(id, err.Error()))
-		http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
-		return
+	path := r.URL.Query().Get("path")
+
+	var responseBody []byte
+	if path == "" {
+		sharedDirs, err := services.ReadRootDirs(DefaultReadDepth)
+		if err != nil {
+			logging.Error.Println(withId(id, err.Error()))
+			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			return
+		}
+		responseBody, err = json.Marshal(sharedDirs)
+		if err != nil {
+			logging.Error.Println(withId(id, err.Error()))
+			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		rootDirHash := r.URL.Query().Get("root-dir-hash")
+		sharedDir, err := services.ReadDir(path, rootDirHash, DefaultReadDepth)
+		if err != nil {
+			logging.Error.Println(withId(id, err.Error()))
+			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			return
+		}
+		responseBody, err = json.Marshal(sharedDir)
+		if err != nil {
+			logging.Error.Println(withId(id, err.Error()))
+			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	responseBody, err := json.Marshal(sharedDirs)
+	written, err := w.Write(responseBody)
 	if err != nil {
 		logging.Error.Println(withId(id, err.Error()))
-		http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
 		return
-	}
-
-	_, err = w.Write(responseBody)
-	if err != nil {
-		logging.Error.Println(withId(id, err.Error()))
+	} else if written != len(responseBody) {
+		logging.Error.Println(withId(id,
+			"Failed to write full response body. All: %d, written:%d",
+			len(responseBody), written))
 	}
 }
 
