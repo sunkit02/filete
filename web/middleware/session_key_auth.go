@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"floader/logging"
+	"filete/logging"
 	"net/http"
 	"strings"
 )

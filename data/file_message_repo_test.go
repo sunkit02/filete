@@ -3,7 +3,7 @@ package data
 import (
 	"bytes"
 	"encoding/json"
-	"floader/logging"
+	"filete/logging"
 	"fmt"
 	"math/rand"
 	"os"
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const testFilePath = "/tmp/floader_messages"
+const testFilePath = "/tmp/filete_messages"
 
 func init() {
 	logging.InitializeLoggers(os.Stdout)

@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"floader/logging"
-	"floader/web/types"
+	"filete/logging"
+	"filete/web/types"
 	"net/http"
 
 	"github.com/google/uuid"

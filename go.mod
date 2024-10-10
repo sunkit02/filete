@@ -1,4 +1,4 @@
-module floader
+module filete
 
 go 1.23.0
 

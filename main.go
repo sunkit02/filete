@@ -1,8 +1,8 @@
 package main
 
 import (
-	"floader/logging"
-	"floader/web"
+	"filete/logging"
+	"filete/web"
 	"os"
 )
 
@@ -16,7 +16,7 @@ func main() {
 		CertFile:   "./secrets/server.crt",
 		KeyFile:    "./secrets/server.key",
 		AssetDir:   "./static",
-		ShareDirs:  []string{"/home/sunkit/Music"},
+		ShareDirs:  []string{"/home/sunkit"},
 		UploadDir:  "./uploaded",
 		SessionKey: "123",
 	}
