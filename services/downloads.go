@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/sha256"
 	"errors"
+	"floader/logging"
 	"fmt"
 	"os"
 )
@@ -26,7 +27,8 @@ type SharedFile struct {
 	Size        int64
 	RootDirHash string
 
-	// This is not nil only if Ftype == Directory
+	// This is not nil only if FType == Directory, but it still can be nil even
+	// if FType == Directory when the contents has yet to be fetched
 	Children []SharedFile
 }
 
@@ -60,6 +62,7 @@ func ReadRootDirs(depth int) ([]SharedFile, error) {
 }
 
 func ReadDir(path, rootDirHash string, depth int) (SharedFile, error) {
+	logging.Debug.Println(path, rootDirHash, depth)
 	rootDir, ok := sharedRootDirs[rootDirHash]
 	if !ok {
 		return SharedFile{}, errors.New("Invalid rootDirHash")
@@ -97,25 +100,33 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 		if err != nil {
 			return SharedFile{}, err
 		}
+
 		name := info.Name()
+		childPath := path + "/" + name
+		childFType := File
+		childSize := info.Size()
+		var childChildren []SharedFile
 
 		if info.IsDir() {
-			childPath := path + "/" + name
-			child, err := readDir(childPath, rootDirHash, depth-1)
-			children = append(children, child)
-			if err != nil {
-				return SharedFile{}, nil
+			if depth > 1 {
+				child, err := readDir(childPath, rootDirHash, depth-1)
+				if err != nil {
+					return SharedFile{}, err
+				}
+				children = append(children, child)
+			} else {
+				childFType = Directory
 			}
-		} else {
-			children = append(children, SharedFile{
-				FType:       File,
-				Name:        name,
-				Path:        path + "/" + name,
-				Size:        info.Size(),
-				RootDirHash: rootDirHash,
-				Children:    nil,
-			})
 		}
+
+		children = append(children, SharedFile{
+			FType:       childFType,
+			Name:        name,
+			Path:        childPath,
+			Size:        childSize,
+			RootDirHash: rootDirHash,
+			Children:    childChildren,
+		})
 	}
 
 	sharedDir := SharedFile{
