@@ -6,3 +6,12 @@
 details>summary {
   cursor: pointer;
 }
+
+.shared-dir-shared-file {
+  cursor: pointer;
+}
+
+.shared-dir-shared-file:hover,
+details>summary:hover {
+  color: blue;
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"filete/logging"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -63,7 +64,7 @@ func ReadRootDirs(depth int) ([]SharedFile, error) {
 }
 
 func ReadDir(path, rootDirHash string, depth int) (SharedFile, error) {
-	logging.Debug.Println(path, "Root hash: "+rootDirHash, depth)
+	logging.Debug.Println("ReadDir Path: "+path, "Root hash: "+rootDirHash, "depth:", depth)
 	rootDir, ok := sharedRootDirs[rootDirHash]
 	if !ok {
 		return SharedFile{}, errors.New("Invalid rootDirHash")
@@ -78,7 +79,43 @@ func ReadDir(path, rootDirHash string, depth int) (SharedFile, error) {
 	return readDir(path, rootDirHash, depth)
 }
 
+// Returns the bytes of a file, file name, and an error if there is any.
+// If the file is a directory it will be returned in the form of a zip file.
+func GetFileForDownload(path, rootDirHash string) ([]byte, string, error) {
+	logging.Debug.Printf("GetFileBytes(%v, %v)", path, rootDirHash)
+
+	rootDir, ok := sharedRootDirs[rootDirHash]
+	if !ok {
+		return nil, "", errors.New("Invalid rootDirHash")
+	}
+
+	fullPath := rootDir.Path + "/" + path
+
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// TODO: Implement directory zipping
+	if info.IsDir() {
+		return nil, "", errors.New("Not implemented yet")
+	} else {
+		file, err := os.Open(fullPath)
+		if err != nil {
+			return nil, "", err
+		}
+
+		bytes, err := io.ReadAll(file)
+		if err != nil {
+			return nil, "", err
+		}
+
+		return bytes, info.Name(), nil
+	}
+}
+
 func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
+	logging.Debug.Println("readDir Path: "+path, "Root hash: "+rootDirHash, "depth:", depth)
 	if depth < 1 {
 		return SharedFile{}, fmt.Errorf("Depth must be >= 1. Got %d", depth)
 	}

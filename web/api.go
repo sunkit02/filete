@@ -63,6 +63,7 @@ func StartServer(configs ServerConfigs) {
 	apiMux.HandleFunc("POST /upload", handleFileUpload)
 	apiMux.HandleFunc("POST /message", handlePostMessage)
 	apiMux.HandleFunc("GET /shared-dir", handleGetSharedDir)
+	apiMux.HandleFunc("GET /download", handleFileDownload)
 
 	composedMux := http.NewServeMux()
 	composedMux.Handle("/", assetMux)
@@ -240,6 +241,38 @@ func handleGetSharedDir(w http.ResponseWriter, r *http.Request) {
 		logging.Error.Println(withId(id,
 			"Failed to write full response body. All: %d, written:%d",
 			len(responseBody), written))
+	}
+}
+
+func handleFileDownload(w http.ResponseWriter, r *http.Request) {
+	id := middleware.ExtractRequestId(r)
+
+	path := r.URL.Query().Get("path")
+	rootDirHash := r.URL.Query().Get("root-dir-hash")
+
+	if path == "" || rootDirHash == "" {
+		http.Error(w, withId(id, "Invalid path or rootDirHash"), http.StatusBadRequest)
+		return
+	}
+
+	bytes, fileName, err := services.GetFileForDownload(path, rootDirHash)
+	if err != nil {
+		logging.Error.Println(withId(id, err.Error()))
+		http.Error(w, withId(id, "Internal error"), http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; file-name="+fileName)
+
+	written, err := w.Write(bytes)
+	if err != nil {
+		logging.Error.Println(withId(id, err.Error()))
+		return
+	}
+
+	if written != len(bytes) {
+		logging.Error.Println(withId(id, "Failed to write full file. Full file: %v. Written: %v", len(bytes), written))
+		return
 	}
 }
 
