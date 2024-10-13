@@ -1,16 +1,30 @@
 const sharedDirContainer = document.getElementById("shared-dirs-container");
 const refreshBtn = document.getElementById("shared-dirs-refresh-btn");
 
-refreshBtn.addEventListener("click", refreshSharedDirs);
+refreshBtn.addEventListener("click", async () => {
+  while (!sessionToken) {
+    const input = prompt("Session Token:")
+    if (input === null) {
+      return
+    }
+    sessionToken = input
+    displaySessionToken()
+  }
+  await refreshSharedDirs();
+});
 
 // Auto-fetch on load
 refreshSharedDirs()
 
 async function refreshSharedDirs() {
-  const rootDirs = await fetchRootSharedDirs();
-  const rootDirElements = rootDirs.map(createSharedFileElement);
-
-  sharedDirContainer.replaceChildren(...rootDirElements);
+  try {
+    const rootDirs = await fetchRootSharedDirs();
+    const rootDirElements = rootDirs.map(createSharedFileElement);
+    sharedDirContainer.replaceChildren(...rootDirElements);
+  } catch (e) {
+    console.error(e);
+    sharedDirContainer.replaceChildren("Failed to load shared directories")
+  }
 }
 
 /**

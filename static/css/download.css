@@ -3,6 +3,6 @@
   border-left: 1px solid grey;
 }
 
-.shared-dir-children-container>summary {
+details>summary {
   cursor: pointer;
 }
