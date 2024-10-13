@@ -63,7 +63,7 @@ func ReadRootDirs(depth int) ([]SharedFile, error) {
 }
 
 func ReadDir(path, rootDirHash string, depth int) (SharedFile, error) {
-	logging.Debug.Println(path, rootDirHash, depth)
+	logging.Debug.Println(path, "Root hash: "+rootDirHash, depth)
 	rootDir, ok := sharedRootDirs[rootDirHash]
 	if !ok {
 		return SharedFile{}, errors.New("Invalid rootDirHash")
@@ -104,9 +104,10 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 			return SharedFile{}, err
 		}
 
+		// set file type to `File` initially
+		childFType := File
 		childName := info.Name()
 		childPath := path + "/" + childName
-		childFType := File
 		childSize := info.Size()
 		var childChildren []SharedFile
 
@@ -120,19 +121,17 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 			} else {
 				childFType = Directory
 			}
+		} else {
+			children = append(children, SharedFile{
+				FType:       childFType,
+				Name:        childName,
+				Path:        stripRootPath(childPath, rootDirPath),
+				Size:        childSize,
+				RootDirHash: rootDirHash,
+				Children:    childChildren,
+			})
 		}
-
-		fmt.Println(strings.Split(childPath, rootDirPath))
-		children = append(children, SharedFile{
-			FType:       childFType,
-			Name:        childName,
-			Path:        stripRootPath(childPath, rootDirPath),
-			Size:        childSize,
-			RootDirHash: rootDirHash,
-			Children:    childChildren,
-		})
 	}
-	fmt.Println(strings.Split(path, rootDirPath))
 	sharedDir := SharedFile{
 		FType:       Directory,
 		Name:        dirName,
