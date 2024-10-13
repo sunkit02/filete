@@ -230,6 +230,8 @@ func handleGetSharedDir(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	written, err := w.Write(responseBody)
 	if err != nil {
 		logging.Error.Println(withId(id, err.Error()))

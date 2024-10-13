@@ -21,15 +21,15 @@ type SharedRootDir struct {
 }
 
 type SharedFile struct {
-	FType       int
-	Name        string
-	Path        string
-	Size        int64
-	RootDirHash string
+	FType       int    `json:"fType"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Size        int64  `json:"size"`
+	RootDirHash string `json:"rootDirHash"`
 
 	// This is not nil only if FType == Directory, but it still can be nil even
 	// if FType == Directory when the contents has yet to be fetched
-	Children []SharedFile
+	Children []SharedFile `json:"children"`
 }
 
 type DownloadServiceConfig struct {

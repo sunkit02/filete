@@ -1,0 +1,8 @@
+.shared-dir-children-container {
+  padding-left: 15px;
+  border-left: 1px solid grey;
+}
+
+.shared-dir-children-container>summary {
+  cursor: pointer;
+}

@@ -2,158 +2,44 @@
 <html>
 
 <head>
-  <title>Floader</title>
+  <title>Filete | File &amp; Message Sharing</title>
+  <link rel="stylesheet" href="css/download.css" />
 </head>
 
 <body>
-  <h1>Hello, Floader!</h1>
-  <article>
-    <p>Session token: <span id="session-token-display"></span></p>
-    <button id="show-session-token-btn">Show</button>
-    <button id="change-session-token-btn">Change</button>
+  <h1>Hello, Filete!</h1>
+  <section>
+    <article>
+      <p>Session token: <span id="session-token-display"></span></p>
+      <button id="show-session-token-btn">Show</button>
+      <button id="change-session-token-btn">Change</button>
+      <br />
+    </article>
     <br />
-  </article>
-  <br />
-  <form id="file-form" action="/api/upload" method="POST" enctype="multipart/form-data">
-    <label for="file">Select file</label>
-    <input type="file" id="file" name="file" multiple />
-    <br />
-    <button type="submit">Upload</button>
-  </form>
+    <form id="file-form" action="/api/upload" method="POST" enctype="multipart/form-data">
+      <label for="file">Select file</label>
+      <input type="file" id="file" name="file" multiple />
+      <br />
+      <button type="submit">Upload</button>
+    </form>
 
-  <form id="message-form">
-    <label for="title">Title</label>
-    <input type="text" id="title" name="title" />
     <br />
-    <label for="message">Message</label>
-    <input type="text" id="message" name="message" />
-
-    <button type="submit">Send</button>
-  </form>
-  <p id="upload-result"></p>
+    <form id="message-form">
+      <label for="message">Message</label>
+      <br />
+      <textarea type="text" id="message" name="message"></textarea>
+      <button type="submit">Send</button>
+    </form>
+    <p id="upload-result"></p>
+  </section>
+  <section>
+    <h2>Downloads</h2>
+    <button id="shared-dirs-refresh-btn">Refresh</button>
+    <article id="shared-dirs-container">
+    </article>
+  </section>
+  <script src="js/upload.js"></script>
+  <script src="js/download.js"></script>
 </body>
-<script>
-  let sessionToken = "";
-  let showSessionToken = false
-
-  const showSessionTokenBtn = document.getElementById("show-session-token-btn")
-  const changeSessionTokenBtn = document.getElementById("change-session-token-btn")
-  const sessionTokenDisplay = document.getElementById("session-token-display")
-
-  function displaySessionToken() {
-    if (!sessionToken) {
-      sessionTokenDisplay.innerText = "<No Token>"
-    } else if (showSessionToken) {
-      sessionTokenDisplay.innerText = sessionToken
-    } else {
-      sessionTokenDisplay.innerText = "*".repeat(sessionToken.length)
-    }
-  }
-
-  showSessionTokenBtn.addEventListener("click", () => {
-    if (showSessionToken) {
-      showSessionTokenBtn.innerText = "Show"
-    } else {
-      showSessionTokenBtn.innerText = "Hide"
-    }
-    showSessionToken = !showSessionToken
-
-    displaySessionToken()
-  })
-
-  changeSessionTokenBtn.addEventListener("click", () => {
-    input = prompt("Session Token:")
-    if (input != sessionToken) {
-      sessionToken = input
-      displaySessionToken()
-    }
-  })
-
-
-  const fileForm = document.getElementById("file-form");
-  const messageForm = document.getElementById("message-form");
-  const uploadResult = document.getElementById("upload-result");
-
-  fileForm.addEventListener("submit", e => {
-    e.preventDefault();
-
-    const formData = new FormData(fileForm);
-
-    while (!sessionToken) {
-      const input = prompt("Session Token:")
-      if (input === null) {
-        return
-      }
-      sessionToken = input
-      displaySessionToken()
-    }
-
-
-    fetch("/api/upload", {
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + sessionToken
-      },
-      body: formData
-    })
-      .then(async res => {
-        if (res.status >= 400) {
-          throw new Error(await res.text())
-        }
-        uploadResult.innerText = await res.text();
-        setTimeout(() => uploadResult.innerText = "", 2000);
-        fileForm.reset();
-      })
-      .catch(err => {
-        uploadResult.innerText = "Error when uploading files: " + err;
-        console.error("Error when uploading files:", err)
-      });
-
-  });
-
-  messageForm.addEventListener("submit", e => {
-    e.preventDefault();
-
-    const formData = new FormData(messageForm);
-    const title = formData.get("title");
-    const body = formData.get("message");
-    const timeSent = new Date();
-
-    while (!sessionToken) {
-      const input = prompt("Session Token:")
-      if (input === null) {
-        return
-      }
-      sessionToken = input
-      displaySessionToken()
-    }
-
-    fetch("/api/message", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + sessionToken
-      },
-      body: JSON.stringify({title, body, timeSent}),
-    })
-      .then(async res => {
-        if (res.status >= 400) {
-          throw new Error(await res.text())
-        }
-        uploadResult.innerText = await res.text();
-        setTimeout(() => uploadResult.innerText = "", 2000);
-        messageForm.reset();
-      })
-      .catch(err => {
-        uploadResult.innerText = "Error when sending message: " + err;
-        console.error("Error when sending message:", err);
-      });
-
-  });
-
-  sessionToken = prompt("Session Token:")
-  displaySessionToken()
-
-</script>
 
 </html>
