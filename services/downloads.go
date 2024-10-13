@@ -98,29 +98,31 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 
 	children := make([]SharedFile, 0)
 	for _, entry := range dirEntries {
+		logging.Trace.Println("Found entry ", entry.Name(), " isDir:", entry.IsDir())
+
 		info, err := entry.Info()
 		if err != nil {
+			logging.Debug.Println("Failed to get entry info for", entry.Name(), err)
 			return SharedFile{}, err
 		}
 
 		// set file type to `File` initially
-		childFType := File
 		childName := info.Name()
 		childPath := path + "/" + childName
 		childSize := info.Size()
 		var childChildren []SharedFile
 
-		if info.IsDir() {
-			if depth > 1 {
-				child, err := readDir(childPath, rootDirHash, depth-1)
-				if err != nil {
-					return SharedFile{}, err
-				}
-				children = append(children, child)
-			} else {
+		if info.IsDir() && depth > 1 {
+			child, err := readDir(childPath, rootDirHash, depth-1)
+			if err != nil {
+				return SharedFile{}, err
+			}
+			children = append(children, child)
+		} else {
+			childFType := File
+			if info.IsDir() {
 				childFType = Directory
 			}
-		} else {
 			children = append(children, SharedFile{
 				FType:       childFType,
 				Name:        childName,
