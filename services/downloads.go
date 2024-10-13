@@ -6,6 +6,7 @@ import (
 	"filete/logging"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const (
@@ -82,6 +83,8 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 		return SharedFile{}, fmt.Errorf("Depth must be >= 1. Got %d", depth)
 	}
 
+	rootDirPath := sharedRootDirs[rootDirHash].Path
+
 	stat, err := os.Stat(path)
 	if !stat.IsDir() {
 		return SharedFile{}, errors.New(path + " is not a directory")
@@ -101,8 +104,8 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 			return SharedFile{}, err
 		}
 
-		name := info.Name()
-		childPath := path + "/" + name
+		childName := info.Name()
+		childPath := path + "/" + childName
 		childFType := File
 		childSize := info.Size()
 		var childChildren []SharedFile
@@ -119,20 +122,21 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 			}
 		}
 
+		fmt.Println(strings.Split(childPath, rootDirPath))
 		children = append(children, SharedFile{
 			FType:       childFType,
-			Name:        name,
-			Path:        childPath,
+			Name:        childName,
+			Path:        stripRootPath(childPath, rootDirPath),
 			Size:        childSize,
 			RootDirHash: rootDirHash,
 			Children:    childChildren,
 		})
 	}
-
+	fmt.Println(strings.Split(path, rootDirPath))
 	sharedDir := SharedFile{
 		FType:       Directory,
 		Name:        dirName,
-		Path:        path,
+		Path:        stripRootPath(path, rootDirPath),
 		Size:        dirSize,
 		RootDirHash: rootDirHash,
 		Children:    children,
@@ -144,4 +148,20 @@ func hashSHA256(s string) string {
 	hasher := sha256.New()
 	hasher.Write([]byte(s))
 	return fmt.Sprintf("%x", hasher.Sum(nil))
+}
+
+// Strips the given root path from a path and returns the new relative path.
+// Does nothing if the root path is not part of the path.
+func stripRootPath(path string, rootPath string) string {
+	if !strings.HasPrefix(path, rootPath) {
+		return path
+	}
+
+	path = strings.Split(path, rootPath)[1]
+	// Strip leading '/' after stripping root path
+	if strings.HasPrefix(path, "/") {
+		path = strings.SplitN(path, "/", 2)[1]
+	}
+
+	return path
 }
