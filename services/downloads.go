@@ -1,12 +1,15 @@
 package services
 
 import (
+	"archive/zip"
 	"crypto/sha256"
 	"errors"
 	"filete/logging"
+	"filete/utils"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -82,36 +85,48 @@ func ReadDir(path, rootDirHash string, depth int) (SharedFile, error) {
 
 // Returns the bytes of a file, file name, and an error if there is any.
 // If the file is a directory it will be returned in the form of a zip file.
-func GetFileForDownload(path, rootDirHash string) ([]byte, string, error) {
+func GetFileForDownload(path, rootDirHash string) (io.Reader, string, bool, error) {
 	logging.Debug.Printf("GetFileBytes(%v, %v)", path, rootDirHash)
 
 	rootDir, ok := sharedRootDirs[rootDirHash]
 	if !ok {
-		return nil, "", errors.New("Invalid rootDirHash")
+		return nil, "", false, errors.New("Invalid rootDirHash")
 	}
 
-	fullPath := rootDir.Path + "/" + path
+	fullPath := rootDir.Path
+	// Only add '/' separator when path is not empty.
+	// Unnecessary currently but for good measure.
+	if path != "" {
+		fullPath += "/" + path
+	}
 
 	info, err := os.Stat(fullPath)
 	if err != nil {
-		return nil, "", err
+		return nil, "", false, err
 	}
 
-	// TODO: Implement directory zipping
 	if info.IsDir() {
-		return nil, "", errors.New("Not implemented yet")
+		tmpFilePath := "/tmp/filete-downloads-" + utils.GenerateRandomString(10) + ".zip"
+		zipFile, err := os.Create(tmpFilePath)
+		if err != nil {
+			return nil, "", false, err
+		}
+		ZipDirectory(fullPath, zipFile)
+		zipFile.Close()
+
+		zipFile, err = os.Open(tmpFilePath)
+		if err != nil {
+			return nil, "", false, err
+		}
+
+		return zipFile, info.Name(), true, nil
 	} else {
 		file, err := os.Open(fullPath)
 		if err != nil {
-			return nil, "", err
+			return nil, "", false, err
 		}
 
-		bytes, err := io.ReadAll(file)
-		if err != nil {
-			return nil, "", err
-		}
-
-		return bytes, info.Name(), nil
+		return file, info.Name(), false, nil
 	}
 }
 
@@ -213,4 +228,56 @@ func stripRootPath(path string, rootPath string) string {
 	}
 
 	return path
+}
+
+// TODO: Understand how zip and compression works at a deeper level
+func ZipDirectory(source string, destination io.Writer) error {
+	// Create a new zip writer
+	zipWriter := zip.NewWriter(destination)
+	defer zipWriter.Close()
+
+	// Walk through the source directory
+	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Create the zip file header
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		// Set the correct path in the zip archive (relative to the source directory)
+		header.Name = strings.TrimPrefix(path, filepath.Dir(source)+"/")
+
+		// If it's a directory, we need to mark it as a directory in the header
+		if info.IsDir() {
+			header.Name += "/"
+		} else {
+			header.Method = zip.Deflate // Use Deflate compression method for files
+		}
+
+		// Create the writer in the zip archive
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		// If it's a file, copy the file data to the zip archive
+		if !info.IsDir() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(writer, file)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }

@@ -6,10 +6,10 @@ import (
 	"filete/data"
 	"filete/logging"
 	"filete/services"
+	"filete/utils"
 	"filete/web/middleware"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -52,7 +52,7 @@ func StartServer(configs ServerConfigs) {
 	})
 
 	if configs.SessionKey == "" {
-		configs.SessionKey = generateSessionKey(8)
+		configs.SessionKey = utils.GenerateRandomString(8)
 	}
 	sessionKey = configs.SessionKey
 
@@ -250,28 +250,31 @@ func handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	rootDirHash := r.URL.Query().Get("root-dir-hash")
 
-	if path == "" || rootDirHash == "" {
+	if rootDirHash == "" {
 		http.Error(w, withId(id, "Invalid path or rootDirHash"), http.StatusBadRequest)
 		return
 	}
 
-	bytes, fileName, err := services.GetFileForDownload(path, rootDirHash)
+	file, fileName, isDir, err := services.GetFileForDownload(path, rootDirHash)
 	if err != nil {
 		logging.Error.Println(withId(id, err.Error()))
 		http.Error(w, withId(id, "Internal error"), http.StatusInternalServerError)
 	}
 
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; file-name="+fileName)
-
-	written, err := w.Write(bytes)
-	if err != nil {
-		logging.Error.Println(withId(id, err.Error()))
-		return
+	var contentType string
+	if isDir {
+		contentType = "application/zip"
+	} else {
+		contentType = "application/octet-stream"
 	}
 
-	if written != len(bytes) {
-		logging.Error.Println(withId(id, "Failed to write full file. Full file: %v. Written: %v", len(bytes), written))
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", "attachment; file-name="+fileName)
+
+	// TODO: Check for complete file transfer
+	_, err = io.Copy(w, file)
+	if err != nil {
+		logging.Error.Println(withId(id, err.Error()))
 		return
 	}
 }
@@ -314,20 +317,4 @@ func withId(id uuid.UUID, format string, a ...any) string {
 	args = append(args, a...)
 
 	return fmt.Sprintf("reqId(%s) "+format, args...)
-}
-
-var alphanumerics = [...]rune{
-	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
-	'J', 'K', 'L', 'M', 'N', 'O', 'P', 'q', 'r',
-	's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1',
-	'2', '3', '4', '5', '6', '7', '8', '9', '0',
-}
-
-func generateSessionKey(length uint) string {
-	var key strings.Builder
-	for range length {
-		key.WriteRune(alphanumerics[rand.Intn(len(alphanumerics))])
-	}
-
-	return key.String()
 }

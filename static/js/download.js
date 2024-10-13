@@ -82,11 +82,10 @@ function createSharedFileElement(file) {
   if (file.fType === FILE) {
     const div = document.createElement("div");
     const span = document.createElement("span");
-    span.classList.add("shared-dir-shared-file")
+    span.classList.add("shared-dir-shared-file");
 
     span.innerText = file.name;
     span.addEventListener("click", () => handleFileDownload(file));
-
 
     div.appendChild(span);
 
@@ -96,13 +95,28 @@ function createSharedFileElement(file) {
     const summary = document.createElement("summary");
     summary.innerText = file.name;
 
+    const downloadBtn = document.createElement("button");
+    downloadBtn.innerText = "⬇";
+    downloadBtn.classList.add("shared-dir-download-btn");
+    downloadBtn.classList.add("hidden");
+    downloadBtn.addEventListener("click", () => handleFileDownload(file));
+
+    summary.appendChild(downloadBtn);
+
+    // Hide downloadBtn until summary is hovered
+    summary.addEventListener("mouseenter", () => {
+      downloadBtn.classList.remove("hidden");
+    });
+    summary.addEventListener("mouseleave", () => {
+      downloadBtn.classList.add("hidden");
+    });
+
     const childrenContainer = document.createElement("div");
     childrenContainer.classList.add("shared-dir-children-container");
     if (file.children) {
       for (const child of file.children) {
         childrenContainer.appendChild(createSharedFileElement(child));
       }
-
     }
 
     details.appendChild(summary);
@@ -112,24 +126,24 @@ function createSharedFileElement(file) {
       e.stopPropagation();
 
       // This either means that the directory is empty or that it wasn't fetched.
-      // Implementing a check to avoid extra network calls when the directory is 
+      // Implementing a check to avoid extra network calls when the directory is
       // actually empty can be an improvement.
       //
       // Fetches the content of the directory and adds them to the DOM.
       if (childrenContainer.children.length === 0) {
         let sharedDir;
         try {
-          sharedDir = await fetchDirectoryContent(file.path, file.rootDirHash)
+          sharedDir = await fetchDirectoryContent(file.path, file.rootDirHash);
         } catch (e) {
-          console.error(`Failed to fetch directory content of ${file.path}`, e)
-          return
+          console.error(`Failed to fetch directory content of ${file.path}`, e);
+          return;
         }
 
         for (const child of sharedDir.children) {
           childrenContainer.appendChild(createSharedFileElement(child));
         }
       }
-    })
+    });
 
     element = details;
   } else {
@@ -143,12 +157,12 @@ function createSharedFileElement(file) {
  * @param {SharedFile} file SharedFile to download
  */
 async function handleFileDownload(file) {
-  console.log(`Trying to download ${file.name}`)
+  console.log(`Trying to download ${file.name}`);
 
   let response;
   try {
     response = await fetchFileBinaryContent(file);
-    console.log("Fetched binary content")
+    console.log("Fetched binary content");
   } catch (e) {
     console.error(`Failed to download file: ${file.name}`, e);
     return;
@@ -164,17 +178,16 @@ async function handleFileDownload(file) {
 
   const blob = await response.blob();
 
-  console.log("Creating anchor element")
+  console.log("Creating anchor element");
   const a = document.createElement("a");
   a.download = file.name;
   const url = window.URL.createObjectURL(blob);
   a.href = url;
 
-  document.body.appendChild(a)
-  console.log("Starting download")
+  document.body.appendChild(a);
+  console.log("Starting download");
   a.click();
-  document.body.removeChild(a)
-
+  document.body.removeChild(a);
 
   window.URL.revokeObjectURL(url);
 
