@@ -90,7 +90,6 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 		return SharedFile{}, errors.New(path + " is not a directory")
 	}
 	dirName := stat.Name()
-	dirSize := stat.Size()
 
 	dirEntries, err := os.ReadDir(path)
 	if err != nil {
@@ -132,6 +131,13 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 			})
 		}
 	}
+
+	var dirSize int64 = 0
+
+	for _, child := range children {
+		dirSize += child.Size
+	}
+
 	sharedDir := SharedFile{
 		FType:       Directory,
 		Name:        dirName,
