@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -175,6 +176,10 @@ func readDir(path, rootDirHash string, depth int) (SharedFile, error) {
 
 	for _, child := range children {
 		dirSize += child.Size
+	}
+
+	if children != nil {
+		sort.Sort(AsFiles(children))
 	}
 
 	sharedDir := SharedFile{
