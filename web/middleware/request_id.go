@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"filete/logging"
-	"filete/web/types"
+	"github.com/sunkit02/filete/logging"
+	"github.com/sunkit02/filete/web/types"
 	"net/http"
 
 	"github.com/google/uuid"

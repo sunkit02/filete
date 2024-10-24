@@ -1,4 +1,4 @@
-module filete
+module github.com/sunkit02/filete
 
 go 1.23.0
 

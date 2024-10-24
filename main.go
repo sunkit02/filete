@@ -1,8 +1,8 @@
 package main
 
 import (
-	"filete/logging"
-	"filete/web"
+	"github.com/sunkit02/filete/logging"
+	"github.com/sunkit02/filete/web"
 	"os"
 )
 

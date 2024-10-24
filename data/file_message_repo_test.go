@@ -3,7 +3,7 @@ package data
 import (
 	"bytes"
 	"encoding/json"
-	"filete/logging"
+	"github.com/sunkit02/filete/logging"
 	"fmt"
 	"math/rand"
 	"os"

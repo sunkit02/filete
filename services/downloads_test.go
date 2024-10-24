@@ -11,7 +11,7 @@ import (
 var DownloadServiceConfigs DownloadServiceConfig
 
 func initializeService() string {
-	tmpDirPath, err := os.MkdirTemp("", "filete_downloads_test-*")
+	tmpDirPath, err := os.MkdirTemp("", "github.com/sunkit02/filete_downloads_test-*")
 	if err != nil {
 		panic(err)
 	}

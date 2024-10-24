@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"filete/logging"
+	"github.com/sunkit02/filete/logging"
 	"fmt"
 	"net/http"
 	"strings"
