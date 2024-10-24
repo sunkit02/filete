@@ -3,17 +3,19 @@ package web
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
+	"io"
+	"io/fs"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/sunkit02/filete/data"
 	"github.com/sunkit02/filete/logging"
 	"github.com/sunkit02/filete/services"
 	"github.com/sunkit02/filete/utils"
 	"github.com/sunkit02/filete/web/middleware"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +26,7 @@ type ServerConfigs struct {
 	KeyFile  string
 
 	// Path to directory holding static assets
-	AssetDir string
+	Assets fs.FS
 
 	// Path to directory that saves all uploaded content
 	// NOTE: Must be pointing to a directory or empty
@@ -57,7 +59,7 @@ func StartServer(configs ServerConfigs) {
 	sessionKey = configs.SessionKey
 
 	assetMux := http.NewServeMux()
-	assetMux.Handle("GET /", http.FileServer(http.Dir(configs.AssetDir)))
+	assetMux.Handle("GET /", http.FileServer(http.FS(configs.Assets)))
 
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("POST /upload", handleFileUpload)
