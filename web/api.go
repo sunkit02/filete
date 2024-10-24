@@ -259,6 +259,7 @@ func handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logging.Error.Println(withId(id, err.Error()))
 		http.Error(w, withId(id, "Internal error"), http.StatusInternalServerError)
+		return
 	}
 
 	var contentType string

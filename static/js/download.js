@@ -139,6 +139,7 @@ function createSharedFileElement(file) {
           return;
         }
 
+        // BUG: sharedDir is `undefined` when sharing uploaded directory
         for (const child of sharedDir.children) {
           childrenContainer.appendChild(createSharedFileElement(child));
         }
@@ -175,6 +176,9 @@ async function handleFileDownload(file) {
     );
     return;
   }
+
+  const fileSize = response.headers.get("content-length")
+  console.info(`File size: ${fileSize}bytes`)
 
   const blob = await response.blob();
 

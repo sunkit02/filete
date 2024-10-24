@@ -11,12 +11,15 @@ func init() {
 }
 
 func main() {
+	args := os.Args[1:]
+
 	serverConfigs := web.ServerConfigs{
-		Port:       8080,
-		CertFile:   "./secrets/server.crt",
-		KeyFile:    "./secrets/server.key",
-		AssetDir:   "./static",
-		ShareDirs:  []string{"/home/sunkit"},
+		Port:      8080,
+		CertFile:  "./secrets/server.crt",
+		KeyFile:   "./secrets/server.key",
+		AssetDir:  "./static",
+		ShareDirs: args,
+		// ShareDirs:  []string{"/home/sunkit/src"},
 		UploadDir:  "./uploaded",
 		SessionKey: "123",
 	}
