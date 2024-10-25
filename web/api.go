@@ -14,10 +14,9 @@ import (
 	"github.com/sunkit02/filete/data"
 	"github.com/sunkit02/filete/logging"
 	"github.com/sunkit02/filete/services"
-	"github.com/sunkit02/filete/utils"
+	Utils "github.com/sunkit02/filete/utils"
 	"github.com/sunkit02/filete/web/middleware"
-
-	"github.com/google/uuid"
+	"github.com/sunkit02/filete/web/utils"
 )
 
 type ServerConfigs struct {
@@ -49,15 +48,22 @@ func StartServer(configs ServerConfigs) {
 	r := data.NewFileMessageRepo(configs.UploadDir + "/messages.dat")
 	messageRepo = &r
 
+	// Ensure that the session key is not empty
+	if configs.SessionKey == "" {
+		configs.SessionKey = Utils.GenerateRandomString(8)
+	}
+	sessionKey = configs.SessionKey
+
+	// Init services
 	services.InitDownloadService(services.DownloadServiceConfig{
 		SharedDirectories: configs.ShareDirs,
 	})
 
-	if configs.SessionKey == "" {
-		configs.SessionKey = utils.GenerateRandomString(8)
-	}
-	sessionKey = configs.SessionKey
+	services.InitAuthService(services.AuthServiceConfig{
+		SessionKey: configs.SessionKey,
+	})
 
+	// Initialize routes
 	assetMux := http.NewServeMux()
 	assetMux.Handle("GET /", http.FileServer(http.FS(configs.Assets)))
 
@@ -69,8 +75,8 @@ func StartServer(configs ServerConfigs) {
 
 	composedMux := http.NewServeMux()
 	composedMux.Handle("/", assetMux)
-	composedMux.Handle("/api/", middleware.SessionKeyAuthMiddleware(
-		sessionKey,
+	composedMux.Handle("/auth/", http.StripPrefix("/auth", AuthRoutes()))
+	composedMux.Handle("/api/", middleware.CookieAuthMiddleware(
 		http.StripPrefix("/api", apiMux),
 	))
 
@@ -104,14 +110,14 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(MaxFileSizeStoredInMemory)
 	if err != nil {
-		logging.Error.Println(withId(id, "Failed to parse multipart file"))
-		http.Error(w, withId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
+		logging.Error.Println(utils.WithId(id, "Failed to parse multipart file"))
+		http.Error(w, utils.WithId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
 		return
 	}
 
 	if len(r.MultipartForm.File) == 0 {
-		logging.Error.Println(withId(id, "No multipart files found"))
-		http.Error(w, withId(id, "No files found"), http.StatusBadRequest)
+		logging.Error.Println(utils.WithId(id, "No multipart files found"))
+		http.Error(w, utils.WithId(id, "No files found"), http.StatusBadRequest)
 		return
 	}
 
@@ -121,8 +127,8 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 		for _, fileheader := range fileheaders {
 			uploadedFile, err := fileheader.Open()
 			if err != nil {
-				logging.Error.Println(withId(id, "Failed to parse multipart file upload: %v", err))
-				http.Error(w, withId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
+				logging.Error.Println(utils.WithId(id, "Failed to parse multipart file upload: %v", err))
+				http.Error(w, utils.WithId(id, "Failed to parse multipart file upload"), http.StatusBadRequest)
 				return
 			}
 
@@ -132,8 +138,8 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 			saveFilePath := fmt.Sprintf("./uploaded/%d-%s", time.Now().UnixMilli(), fileheader.Filename)
 			saveFile, err := os.Create(saveFilePath)
 			if err != nil {
-				logging.Error.Printf(withId(id, "Unable to save file with name '%s'", saveFilePath))
-				http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+				logging.Error.Printf(utils.WithId(id, "Unable to save file with name '%s'", saveFilePath))
+				http.Error(w, utils.WithId(id, "Error saving file"), http.StatusInternalServerError)
 				return
 			}
 			defer saveFile.Close()
@@ -141,8 +147,8 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 			// Copy the file content to the new file
 			bytesWritten, err := io.Copy(saveFile, uploadedFile)
 			if err != nil {
-				logging.Error.Printf(withId(id, "Unable to copy file with name '%s'", saveFilePath))
-				http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+				logging.Error.Printf(utils.WithId(id, "Unable to copy file with name '%s'", saveFilePath))
+				http.Error(w, utils.WithId(id, "Error saving file"), http.StatusInternalServerError)
 				return
 			}
 
@@ -150,11 +156,11 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 			if bytesWritten != fileheader.Size {
 				err = os.Remove(saveFilePath)
 
-				logging.Error.Printf(withId(id,
+				logging.Error.Printf(utils.WithId(id,
 					"Saved file incomplete/corrupted. Uploaded size: %d, written: %d",
 					bytesWritten, fileheader.Size))
 
-				http.Error(w, withId(id, "Error saving file"), http.StatusInternalServerError)
+				http.Error(w, utils.WithId(id, "Error saving file"), http.StatusInternalServerError)
 				return
 			}
 
@@ -170,23 +176,23 @@ func handlePostMessage(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
-		logging.Error.Println(withId(id, "Failed to read request body"))
-		http.Error(w, withId(id, "Invalid message body"), http.StatusBadRequest)
+		logging.Error.Println(utils.WithId(id, "Failed to read request body"))
+		http.Error(w, utils.WithId(id, "Invalid message body"), http.StatusBadRequest)
 		return
 	}
 
 	var message data.Message
 	err = json.Unmarshal(body, &message)
 	if err != nil {
-		logging.Error.Println(withId(id, "Failed to parse Message from request body"))
-		http.Error(w, withId(id, "Invalid message body"), http.StatusBadRequest)
+		logging.Error.Println(utils.WithId(id, "Failed to parse Message from request body"))
+		http.Error(w, utils.WithId(id, "Invalid message body"), http.StatusBadRequest)
 		return
 	}
 
 	err = messageRepo.Add(message)
 	if err != nil {
-		logging.Error.Println(withId(id, "Failed to write new message to file"), err)
-		http.Error(w, withId(id, "Failed to send new message"), http.StatusInternalServerError)
+		logging.Error.Println(utils.WithId(id, "Failed to write new message to file"), err)
+		http.Error(w, utils.WithId(id, "Failed to send new message"), http.StatusInternalServerError)
 	}
 
 	fmt.Printf("Got message: %+v\n", message)
@@ -207,28 +213,28 @@ func handleGetSharedDir(w http.ResponseWriter, r *http.Request) {
 	if path == "" {
 		sharedDirs, err := services.ReadRootDirs(DefaultReadDepth)
 		if err != nil {
-			logging.Error.Println(withId(id, err.Error()))
-			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			logging.Error.Println(utils.WithId(id, err.Error()))
+			http.Error(w, utils.WithId(id, err.Error()), http.StatusInternalServerError)
 			return
 		}
 		responseBody, err = json.Marshal(sharedDirs)
 		if err != nil {
-			logging.Error.Println(withId(id, err.Error()))
-			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			logging.Error.Println(utils.WithId(id, err.Error()))
+			http.Error(w, utils.WithId(id, err.Error()), http.StatusInternalServerError)
 			return
 		}
 	} else {
 		rootDirHash := r.URL.Query().Get("root-dir-hash")
 		sharedDir, err := services.ReadDir(path, rootDirHash, DefaultReadDepth)
 		if err != nil {
-			logging.Error.Println(withId(id, err.Error()))
-			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			logging.Error.Println(utils.WithId(id, err.Error()))
+			http.Error(w, utils.WithId(id, err.Error()), http.StatusInternalServerError)
 			return
 		}
 		responseBody, err = json.Marshal(sharedDir)
 		if err != nil {
-			logging.Error.Println(withId(id, err.Error()))
-			http.Error(w, withId(id, err.Error()), http.StatusInternalServerError)
+			logging.Error.Println(utils.WithId(id, err.Error()))
+			http.Error(w, utils.WithId(id, err.Error()), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -237,10 +243,10 @@ func handleGetSharedDir(w http.ResponseWriter, r *http.Request) {
 
 	written, err := w.Write(responseBody)
 	if err != nil {
-		logging.Error.Println(withId(id, err.Error()))
+		logging.Error.Println(utils.WithId(id, err.Error()))
 		return
 	} else if written != len(responseBody) {
-		logging.Error.Println(withId(id,
+		logging.Error.Println(utils.WithId(id,
 			"Failed to write full response body. All: %d, written:%d",
 			len(responseBody), written))
 	}
@@ -253,14 +259,14 @@ func handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	rootDirHash := r.URL.Query().Get("root-dir-hash")
 
 	if rootDirHash == "" {
-		http.Error(w, withId(id, "Invalid path or rootDirHash"), http.StatusBadRequest)
+		http.Error(w, utils.WithId(id, "Invalid path or rootDirHash"), http.StatusBadRequest)
 		return
 	}
 
 	file, fileName, isDir, err := services.GetFileForDownload(path, rootDirHash)
 	if err != nil {
-		logging.Error.Println(withId(id, err.Error()))
-		http.Error(w, withId(id, "Internal error"), http.StatusInternalServerError)
+		logging.Error.Println(utils.WithId(id, err.Error()))
+		http.Error(w, utils.WithId(id, "Internal error"), http.StatusInternalServerError)
 		return
 	}
 
@@ -277,7 +283,7 @@ func handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check for complete file transfer
 	_, err = io.Copy(w, file)
 	if err != nil {
-		logging.Error.Println(withId(id, err.Error()))
+		logging.Error.Println(utils.WithId(id, err.Error()))
 		return
 	}
 }
@@ -312,12 +318,4 @@ func reqLogStr(r *http.Request, headers bool) string {
 		logStr = fmt.Sprintf("%s %v", r.Method, path)
 	}
 	return logStr
-}
-
-func withId(id uuid.UUID, format string, a ...any) string {
-	args := make([]any, 0, len(a)+1)
-	args = append(args, id)
-	args = append(args, a...)
-
-	return fmt.Sprintf("reqId(%s) "+format, args...)
 }
