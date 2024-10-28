@@ -21,7 +21,7 @@ func AuthRoutes() *http.ServeMux {
 }
 
 type authRequest struct {
-	sessionKey string `json:"sessionKey"`
+	SessionKey string `json:"sessionKey"`
 }
 
 func handleAuthenticate(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +35,7 @@ func handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
 	authReq := &authRequest{}
 	err = json.Unmarshal(body, &authReq)
@@ -46,7 +47,7 @@ func handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 
 	logging.Trace.Println("authRequest", authReq)
 
-	session, err := services.AuthenticateWithSessionKey("123")
+	session, err := services.AuthenticateWithSessionKey(authReq.SessionKey)
 	if err != nil {
 		msg := utils.WithId(id, "Invalid sessionId")
 		logging.Debug.Println(msg, http.StatusUnauthorized)
