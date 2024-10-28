@@ -10,7 +10,7 @@ import (
 	"github.com/sunkit02/filete/logging"
 	"github.com/sunkit02/filete/services"
 	"github.com/sunkit02/filete/utils"
-	"github.com/sunkit02/filete/web/middleware"
+	mw "github.com/sunkit02/filete/web/middleware"
 )
 
 type ServerConfigs struct {
@@ -58,19 +58,17 @@ func StartServer(configs ServerConfigs) {
 	})
 
 	// Initialize routes
-	cookieAuthMiddleware := middleware.CookieAuthMiddleware
-
 	composedMux := http.NewServeMux()
 	composedMux.Handle("/", StaticAssetsRoute(configs))
 	composedMux.Handle("/auth/", http.StripPrefix("/auth", AuthRoutes()))
-	composedMux.Handle("/api/", cookieAuthMiddleware(
+	composedMux.Handle("/api/", mw.CookieAuthMiddleware(
 		http.StripPrefix("/api", ApiRoutes()),
 	))
 
 	topLevelMux := http.NewServeMux()
 	topLevelMux.Handle("/",
-		middleware.RequestIdMiddleware(
-			middleware.RequestLoggingMiddleware(composedMux)))
+		mw.RequestIdMiddleware(
+			mw.RequestLoggingMiddleware(composedMux)))
 
 	// Define the HTTPS server configuration
 	server := &http.Server{
