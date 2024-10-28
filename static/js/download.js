@@ -2,13 +2,13 @@ const sharedDirContainer = document.getElementById("shared-dirs-container");
 const refreshBtn = document.getElementById("shared-dirs-refresh-btn");
 
 refreshBtn.addEventListener("click", async () => {
-  while (!sessionToken) {
-    const input = prompt("Session Token:");
+  while (!sessionKey) {
+    const input = prompt("Session Key:");
     if (input === null) {
       return;
     }
-    sessionToken = input;
-    displaySessionToken();
+    sessionKey = input;
+    displaySessionKey();
   }
   await refreshSharedDirs();
 });
@@ -61,7 +61,7 @@ async function fetchDirectoryContent(path, rootDirHash) {
 
   return await fetch(`/api/shared-dir?${params.toString()}`, {
     headers: {
-      Authorization: `Bearer ${sessionToken}`,
+      Authorization: `Bearer ${sessionKey}`,
     },
   }).then((res) => res.json());
 }
@@ -218,7 +218,7 @@ async function fetchFileBinaryContent(file) {
 
   return await fetch(`/api/download?${params.toString()}`, {
     headers: {
-      Authorization: `Bearer ${sessionToken}`,
+      Authorization: `Bearer ${sessionKey}`,
     },
   });
 }

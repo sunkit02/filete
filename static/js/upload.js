@@ -1,36 +1,76 @@
-let sessionToken = "";
-let showSessionToken = false
+let sessionKey = "";
+let showSessionKey = false
 
-const showSessionTokenBtn = document.getElementById("show-session-token-btn")
-const changeSessionTokenBtn = document.getElementById("change-session-token-btn")
-const sessionTokenDisplay = document.getElementById("session-token-display")
+const showSessionKeyBtn = document.getElementById("show-session-key-btn")
+const changeSessionKeyBtn = document.getElementById("change-session-key-btn")
+const sessionKeyDisplay = document.getElementById("session-key-display")
+const authenticateBtn = document.getElementById("authenticate-btn")
+const endSessionBtn = document.getElementById("end-session-btn")
 
-function displaySessionToken() {
-  if (!sessionToken) {
-    sessionTokenDisplay.innerText = "<No Token>"
-  } else if (showSessionToken) {
-    sessionTokenDisplay.innerText = sessionToken
+authenticateBtn.addEventListener("click", () => {
+  while (!sessionKey) {
+    const input = prompt("Session Key:")
+    if (input === null) {
+      return
+    }
+    sessionKey = input
+    displaySessionKey()
+  }
+
+  fetch("/auth/authenticate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ sessionKey })
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const msg = `Failed to authenticate: ${await res.text()}`
+        alert(msg)
+        console.error(msg)
+      }
+    })
+    .catch(err => console.error(err))
+});
+endSessionBtn.addEventListener("click", () => {
+  fetch("/auth/invalidate-token", {
+    method: "POST",
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+    })
+    .catch(err => console.error(err))
+})
+
+function displaySessionKey() {
+  if (!sessionKey) {
+    sessionKeyDisplay.innerText = "<No Key>"
+  } else if (showSessionKey) {
+    sessionKeyDisplay.innerText = sessionKey
   } else {
-    sessionTokenDisplay.innerText = "*".repeat(sessionToken.length)
+    sessionKeyDisplay.innerText = "*".repeat(sessionKey.length)
   }
 }
 
-showSessionTokenBtn.addEventListener("click", () => {
-  if (showSessionToken) {
-    showSessionTokenBtn.innerText = "Show"
+showSessionKeyBtn.addEventListener("click", () => {
+  if (showSessionKey) {
+    showSessionKeyBtn.innerText = "Show"
   } else {
-    showSessionTokenBtn.innerText = "Hide"
+    showSessionKeyBtn.innerText = "Hide"
   }
-  showSessionToken = !showSessionToken
+  showSessionKey = !showSessionKey
 
-  displaySessionToken()
+  displaySessionKey()
 })
 
-changeSessionTokenBtn.addEventListener("click", () => {
-  input = prompt("Session Token:")
-  if (input !== sessionToken) {
-    sessionToken = input
-    displaySessionToken()
+changeSessionKeyBtn.addEventListener("click", () => {
+  input = prompt("Session Key:")
+  if (input !== sessionKey) {
+    sessionKey = input
+    displaySessionKey()
   }
 })
 
@@ -44,20 +84,20 @@ fileForm.addEventListener("submit", e => {
 
   const formData = new FormData(fileForm);
 
-  while (!sessionToken) {
-    const input = prompt("Session Token:")
+  while (!sessionKey) {
+    const input = prompt("Session Key:")
     if (input === null) {
       return
     }
-    sessionToken = input
-    displaySessionToken()
+    sessionKey = input
+    displaySessionKey()
   }
 
 
   fetch("/api/upload", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${sessionToken}`
+      "Authorization": `Bearer ${sessionKey}`
     },
     body: formData
   })
@@ -85,20 +125,20 @@ messageForm.addEventListener("submit", e => {
   const body = formData.get("message");
   const timeSent = new Date();
 
-  while (!sessionToken) {
-    const input = prompt("Session Token:")
+  while (!sessionKey) {
+    const input = prompt("Session Key:")
     if (input === null) {
       return
     }
-    sessionToken = input
-    displaySessionToken()
+    sessionKey = input
+    displaySessionKey()
   }
 
   fetch("/api/message", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${sessionToken}`
+      "Authorization": `Bearer ${sessionKey}`
     },
     body: JSON.stringify({ body, timeSent }),
   })
@@ -119,5 +159,5 @@ messageForm.addEventListener("submit", e => {
 
 });
 
-sessionToken = prompt("Session Token:")
-displaySessionToken()
+sessionKey = prompt("Session Key:")
+displaySessionKey()
