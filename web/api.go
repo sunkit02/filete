@@ -1,11 +1,9 @@
 package web
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"strings"
@@ -14,92 +12,18 @@ import (
 	"github.com/sunkit02/filete/data"
 	"github.com/sunkit02/filete/logging"
 	"github.com/sunkit02/filete/services"
-	Utils "github.com/sunkit02/filete/utils"
 	"github.com/sunkit02/filete/web/middleware"
 	"github.com/sunkit02/filete/web/utils"
 )
 
-type ServerConfigs struct {
-	Port     uint16
-	CertFile string
-	KeyFile  string
+func ApiRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /upload", handleFileUpload)
+	mux.HandleFunc("POST /message", handlePostMessage)
+	mux.HandleFunc("GET /shared-dir", handleGetSharedDir)
+	mux.HandleFunc("GET /download", handleFileDownload)
 
-	// Path to directory holding static assets
-	Assets fs.FS
-
-	// Path to directory that saves all uploaded content
-	// NOTE: Must be pointing to a directory or empty
-	UploadDir string
-
-	// Path to directories to be shared
-	ShareDirs []string
-
-	// Key required to be entered by client to authenticate. The server will
-	// generate a random one if left empty.
-	SessionKey string
-}
-
-var (
-	sessionKey  string
-	messageRepo data.Repository[data.MessageId, data.Message]
-)
-
-func StartServer(configs ServerConfigs) {
-	r := data.NewFileMessageRepo(configs.UploadDir + "/messages.dat")
-	messageRepo = &r
-
-	// Ensure that the session key is not empty
-	if configs.SessionKey == "" {
-		configs.SessionKey = Utils.GenerateRandomString(8)
-	}
-	sessionKey = configs.SessionKey
-
-	// Init services
-	services.InitDownloadService(services.DownloadServiceConfig{
-		SharedDirectories: configs.ShareDirs,
-	})
-
-	services.InitAuthService(services.AuthServiceConfig{
-		SessionKey: configs.SessionKey,
-	})
-
-	// Initialize routes
-	assetMux := http.NewServeMux()
-	assetMux.Handle("GET /", http.FileServer(http.FS(configs.Assets)))
-
-	apiMux := http.NewServeMux()
-	apiMux.HandleFunc("POST /upload", handleFileUpload)
-	apiMux.HandleFunc("POST /message", handlePostMessage)
-	apiMux.HandleFunc("GET /shared-dir", handleGetSharedDir)
-	apiMux.HandleFunc("GET /download", handleFileDownload)
-
-	composedMux := http.NewServeMux()
-	composedMux.Handle("/", assetMux)
-	composedMux.Handle("/auth/", http.StripPrefix("/auth", AuthRoutes()))
-	composedMux.Handle("/api/", middleware.CookieAuthMiddleware(
-		http.StripPrefix("/api", apiMux),
-	))
-
-	topLevelMux := http.NewServeMux()
-	topLevelMux.Handle("/",
-		middleware.RequestIdMiddleware(
-			middleware.RequestLoggingMiddleware(composedMux)))
-
-	// Define the HTTPS server configuration
-	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", configs.Port),
-		Handler: topLevelMux,
-		TLSConfig: &tls.Config{
-			MinVersion: tls.VersionTLS13,
-		},
-	}
-
-	// Start the HTTPS server
-	logging.Info.Printf("Start listening on port %d with TLS\n", configs.Port)
-	logging.Info.Println("Session key:", sessionKey)
-	if err := server.ListenAndServeTLS(configs.CertFile, configs.KeyFile); err != nil {
-		logging.Error.Fatalf("Error starting server: %v\n", err)
-	}
+	return mux
 }
 
 const MaxFileSizeStoredInMemory = 32 << 20 // 32 MB
