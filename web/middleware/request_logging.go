@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"github.com/sunkit02/filete/logging"
 	"fmt"
+	"github.com/sunkit02/filete/logging"
 	"net/http"
 	"strings"
 )
@@ -12,7 +12,7 @@ func RequestLoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reqId := ExtractRequestId(r).String()
 		logging.Info.Println(reqLogStr(r, reqId, false))
-		logging.Debug.Println(reqLogStr(r, reqId, true))
+		// logging.Debug.Println(reqLogStr(r, reqId, true))
 		next.ServeHTTP(w, r)
 	})
 }
