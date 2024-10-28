@@ -124,7 +124,7 @@ func handlePostMessage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "Message sent")
 }
 
-const DefaultReadDepth = 2
+const DefaultReadDepth = 1
 
 // Getting with query parameter `path` empty gets the sharedRootDirectories in an array.
 // If `path` is empty, query parameter `root-dir-hash` is ignored
